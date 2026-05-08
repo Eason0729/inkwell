@@ -38,7 +38,7 @@ describe('extractBodyText', () => {
     const lines = result.split('\n');
     expect(lines).toHaveLength(5);
     // 3 empty lines where \u3000 was
-    expect(lines.filter(l => l === '')).toHaveLength(3);
+    expect(lines.filter((l) => l === '')).toHaveLength(3);
   });
 
   it('falls back to innerText when children are not all <p>', async () => {

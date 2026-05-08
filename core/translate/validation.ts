@@ -74,25 +74,25 @@ export interface StructureResult {
   annotatedResponse: string;
   /** Whether ALL violations can be auto-fixed without LLM retry. */
   allAutoFixable: boolean;
+  /** Translation text with auto-fixes applied (inserted empty lines, restored \u3000 indent). */
+  autoFixedText: string;
 }
 
 export function checkStructure(source: string, translation: string): StructureResult {
   const report = scoreStructure(source, translation);
 
-  const hasIndent = report.violations.some(v =>
-    v.tag === 'INDENT_FW_MISSING' || v.tag === 'INDENT_TAB_CHANGED' || v.tag === 'INDENT_ADDED',
+  const hasIndent = report.violations.some(
+    (v) => v.tag === 'INDENT_FW_MISSING' || v.tag === 'INDENT_TAB_CHANGED' || v.tag === 'INDENT_ADDED',
   );
-  const hasEmpty = report.violations.some(v =>
-    v.tag === 'MISSING_EMPTY' || v.tag === 'EXTRA_EMPTY',
-  );
-  const hasContentDist = report.violations.some(v => v.tag === 'BOUNDARY_SHIFT');
-  const hasContentLength = report.violations.some(v => v.tag === 'LENGTH_EXTREME');
+  const hasEmpty = report.violations.some((v) => v.tag === 'MISSING_EMPTY' || v.tag === 'EXTRA_EMPTY');
+  const hasContentDist = report.violations.some((v) => v.tag === 'BOUNDARY_SHIFT');
+  const hasContentLength = report.violations.some((v) => v.tag === 'LENGTH_EXTREME');
   const contentMatch = /content=\d+=\d+/.test(report.summary);
   const hasContentCountViolation = !contentMatch;
 
   // Content must match and all violations must be auto-fixable
-  const allAutoFixable = contentMatch &&
-    (report.violations.length === 0 || report.violations.every(v => v.canAutoFix));
+  const allAutoFixable =
+    contentMatch && (report.violations.length === 0 || report.violations.every((v) => v.canAutoFix));
 
   // Build correction message with annotations for non-auto-fixable cases
   let correction = '';
@@ -111,6 +111,7 @@ export function checkStructure(source: string, translation: string): StructureRe
     correction,
     annotatedResponse: report.annotatedText,
     allAutoFixable,
+    autoFixedText: report.autoFixedText,
   };
 }
 

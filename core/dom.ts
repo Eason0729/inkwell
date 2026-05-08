@@ -25,9 +25,7 @@ export interface ProviderDefinition {
  * reduces token usage without losing structural meaning.
  */
 export function normalizeBodyText(text: string): string {
-  const lines = text
-    .split('\n')
-    .map((l) => (l.trim() === '' ? '' : l));
+  const lines = text.split('\n').map((l) => (l.trim() === '' ? '' : l));
   // Remove leading/trailing empty lines without stripping \u3000 prefixes
   while (lines.length > 0 && lines[0] === '') lines.shift();
   while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();

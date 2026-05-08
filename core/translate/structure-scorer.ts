@@ -39,8 +39,8 @@ export interface Violation {
  */
 export function stripViolationAnnotations(text: string): string {
   return text
-    .replace(/ <!-- VIOLATION:[^>]+-->/g, '')       // inline
-    .replace(/^<!-- VIOLATION:[^>]+-->\n?/gm, '');  // standalone lines
+    .replace(/ <!-- VIOLATION:[^>]+-->/g, '') // inline
+    .replace(/^<!-- VIOLATION:[^>]+-->\n?/gm, ''); // standalone lines
 }
 
 export interface StructureReport {
@@ -132,7 +132,7 @@ export function scoreStructure(source: string, translation: string): StructureRe
   let summaryParts: string[] = [];
 
   if (!contentCountMatch) {
-    // Content count mismatch → low confidence alignment. 
+    // Content count mismatch → low confidence alignment.
     // Use cumulative boundaries as fallback alignment, but more limited auto-fix.
     summaryParts.push(`content=${srcContent.length}->${tgtContent.length}`);
   } else {
@@ -142,12 +142,8 @@ export function scoreStructure(source: string, translation: string): StructureRe
   // ── Signal 2: Boundary anomaly scores ──
   // Compute per-boundary anomaly = |log(tgtCumul / srcCumul)|
   const boundaryCount = Math.min(srcContent.length, tgtContent.length);
-  const srcCumul = srcContent.length > 0
-    ? getCumulativeLengths(srcContent.map(c => c.text))
-    : [];
-  const tgtCumul = tgtContent.length > 0
-    ? getCumulativeLengths(tgtContent.map(c => c.text))
-    : [];
+  const srcCumul = srcContent.length > 0 ? getCumulativeLengths(srcContent.map((c) => c.text)) : [];
+  const tgtCumul = tgtContent.length > 0 ? getCumulativeLengths(tgtContent.map((c) => c.text)) : [];
 
   let boundaryAnomalies: number[] = [];
   let maxBoundaryAnomaly = 0;
@@ -299,12 +295,12 @@ export function scoreStructure(source: string, translation: string): StructureRe
     // If this line has violations, append their annotations
     const lineV = violByLine.get(i);
     if (lineV) {
-      line += lineV.map(v => v.annotation).join('');
+      line += lineV.map((v) => v.annotation).join('');
     }
     annotatedLines.push(line);
     // If this line is BEFORE a missing empty, insert the marker after it
     if (missingEmptyLines.has(i)) {
-      const mv = violations.filter(v => v.tag === 'MISSING_EMPTY' && v.targetLineIndex === i);
+      const mv = violations.filter((v) => v.tag === 'MISSING_EMPTY' && v.targetLineIndex === i);
       for (const v of mv) {
         annotatedLines.push(v.annotation.trimStart());
       }
@@ -317,8 +313,8 @@ export function scoreStructure(source: string, translation: string): StructureRe
   const insertionsNeeded: { atIndex: number; count: number }[] = [];
   if (alignmentConfident) {
     for (let i = 0; i < srcContent.length - 1; i++) {
-      const srcEmpty = srcContent[i+1]!.index - srcContent[i]!.index - 1;
-      const tgtEmpty = tgtContent[i+1]!.index - tgtContent[i]!.index - 1;
+      const srcEmpty = srcContent[i + 1]!.index - srcContent[i]!.index - 1;
+      const tgtEmpty = tgtContent[i + 1]!.index - tgtContent[i]!.index - 1;
       if (srcEmpty > tgtEmpty) {
         insertionsNeeded.push({
           atIndex: tgtContent[i]!.index,
@@ -352,7 +348,7 @@ export function scoreStructure(source: string, translation: string): StructureRe
 
   // ── Summarize ──
   summaryParts.push(`violations=${violations.length}`);
-  const autoFixCount = violations.filter(v => v.canAutoFix).length;
+  const autoFixCount = violations.filter((v) => v.canAutoFix).length;
   if (autoFixCount > 0) summaryParts.push(`autofix=${autoFixCount}`);
 
   const summary = summaryParts.join(' | ');

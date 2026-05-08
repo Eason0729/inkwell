@@ -154,11 +154,16 @@ export async function translateChunk(
 
     for (const rule of rules) {
       const result = rule.check();
+      // Apply structure auto-fix (insert empty lines, restore \u3000 indent) when all violations are fixable
+      if (rule.name === 'structure') {
+        const sr = result as StructureResult;
+        response = sr.autoFixedText;
+      }
       if (!result.ok && (ruleBudget[rule.name] ?? 1) > 0) {
         rejectReason = result.detail;
         correction = rule.correctionOverride ?? result.correction ?? '';
         ruleName = rule.name;
-        // For structure: replace response with annotated version for retry
+        // For structure: use annotated response for retry so LLM sees violation markers
         if (ruleName === 'structure') {
           response = (result as StructureResult).annotatedResponse;
         }

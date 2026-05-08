@@ -14,17 +14,17 @@ describe('scoreStructure', () => {
     const tgt = 'a\nb\nc';
     const report = scoreStructure(src, tgt);
     expect(report.violations.length).toBeGreaterThan(0);
-    expect(report.violations.every(v => v.tag === 'MISSING_EMPTY')).toBe(true);
-    expect(report.violations.every(v => v.canAutoFix)).toBe(true);
+    expect(report.violations.every((v) => v.tag === 'MISSING_EMPTY')).toBe(true);
+    expect(report.violations.every((v) => v.canAutoFix)).toBe(true);
   });
 
   it('detects INDENT_FW_MISSING', () => {
     const src = '\u3000hello\n\u3000world';
     const tgt = 'hello\nworld';
     const report = scoreStructure(src, tgt);
-    const fwMissing = report.violations.filter(v => v.tag === 'INDENT_FW_MISSING');
+    const fwMissing = report.violations.filter((v) => v.tag === 'INDENT_FW_MISSING');
     expect(fwMissing).toHaveLength(2);
-    expect(fwMissing.every(v => v.canAutoFix)).toBe(true);
+    expect(fwMissing.every((v) => v.canAutoFix)).toBe(true);
   });
 
   it('skips INDENT_FW_MISSING when target line is empty content', () => {
@@ -35,7 +35,7 @@ describe('scoreStructure', () => {
     const report = scoreStructure(src, tgt);
     // Content counts may differ (3 vs 2), so alignment is low confidence
     // No indent violations should fire when alignment is not confident
-    const fwMissing = report.violations.filter(v => v.tag === 'INDENT_FW_MISSING');
+    const fwMissing = report.violations.filter((v) => v.tag === 'INDENT_FW_MISSING');
     expect(fwMissing).toHaveLength(0);
   });
 
@@ -73,9 +73,9 @@ describe('scoreStructure', () => {
     const src = 'aaaabbb\ncc';
     const tgt = 'aaa\nbbbcc';
     const report = scoreStructure(src, tgt);
-    const shifts = report.violations.filter(v => v.tag === 'BOUNDARY_SHIFT');
+    const shifts = report.violations.filter((v) => v.tag === 'BOUNDARY_SHIFT');
     expect(shifts.length).toBeGreaterThan(0);
-    expect(shifts.every(v => !v.canAutoFix)).toBe(true);
+    expect(shifts.every((v) => !v.canAutoFix)).toBe(true);
   });
 
   it('detects content count mismatch', () => {
@@ -91,9 +91,9 @@ describe('scoreStructure', () => {
     const src = 'a\nb\nc';
     const tgt = 'a\n\nb\n\nc';
     const report = scoreStructure(src, tgt);
-    const extra = report.violations.filter(v => v.tag === 'EXTRA_EMPTY');
+    const extra = report.violations.filter((v) => v.tag === 'EXTRA_EMPTY');
     expect(extra.length).toBeGreaterThan(0);
-    expect(extra.every(v => !v.canAutoFix)).toBe(true);
+    expect(extra.every((v) => !v.canAutoFix)).toBe(true);
   });
 
   it('handles empty source', () => {
@@ -113,7 +113,7 @@ describe('scoreStructure', () => {
     const src = 'a\n\n\n\n\nb';
     const tgt = 'a\nb';
     const report = scoreStructure(src, tgt);
-    const missing = report.violations.filter(v => v.tag === 'MISSING_EMPTY');
+    const missing = report.violations.filter((v) => v.tag === 'MISSING_EMPTY');
     expect(missing).toHaveLength(1);
     expect(report.annotatedText).toContain('缺少4個');
   });
