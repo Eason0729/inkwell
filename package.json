@@ -1,0 +1,40 @@
+{
+  "name": "inkwell",
+  "version": "0.1.0",
+  "description": "Novel translating browser extension",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt --browser firefox --mv2",
+    "build": "wxt build",
+    "build:chrome": "wxt build --browser chrome --mv3",
+    "build:firefox": "wxt build --browser firefox --mv2",
+    "zip": "wxt zip",
+    "zip:chrome": "wxt zip --browser chrome --mv3",
+    "zip:firefox": "wxt zip --browser firefox --mv2",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"**/*.{ts,tsx,json,css,html}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,css,html}\""
+  },
+  "dependencies": {
+    "dexie": "^4.2.0",
+    "preact": "^10.26.0",
+    "webextension-polyfill": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/webextension-polyfill": "^0.12.0",
+    "@wxt-dev/storage": "^1.2.8",
+    "autoprefixer": "^10.4.0",
+    "happy-dom": "^20.9.0",
+    "postcss": "^8.4.0",
+    "prettier": "^3.8.3",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.5",
+    "wxt": "^0.20.25"
+  }
+}

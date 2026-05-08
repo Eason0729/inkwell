@@ -1,0 +1,38 @@
+description: 'Inkwell translation prompt evaluation'
+
+prompts:
+  - file://../extension/jp/translate.j2
+
+providers:
+  - id: openai:chat:mistralai/mistral-nemo
+    config:
+      apiBaseUrl: https://openrouter.ai/api/v1
+
+tests:
+  - vars:
+      source_lang: Japanese
+      target_lang: Traditional Chinese
+      target_lang_code: zh-tw
+      source_lang_code: jp
+      glossary: ''
+      keyword_mapping: ''
+      text: '「レナリス、大丈夫か？」アルトが駆け寄る。'
+    assert:
+      - type: not-contains
+        value: '<thinking>'
+      - type: not-contains
+        value: '<reasoning>'
+
+  - vars:
+      source_lang: Japanese
+      target_lang: Simplified Chinese
+      target_lang_code: zh-cn
+      source_lang_code: jp
+      glossary: ''
+      keyword_mapping: ''
+      text: '「レナリス、大丈夫か？」アルトが駆け寄る。'
+    assert:
+      - type: not-contains
+        value: '<thinking>'
+      - type: not-contains
+        value: '<reasoning>'
