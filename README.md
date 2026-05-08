@@ -13,11 +13,17 @@ Browser extension for translating Japanese light novels into Chinese using LLMs.
 
 [WXT](https://wxt.dev/) · [Preact](https://preactjs.com/) · [Tailwind CSS](https://tailwindcss.com/) · TypeScript · [Dexie.js](https://dexie.org/) · [Vitest](https://vitest.dev/)
 
+## Usage
+
+Install the extension, and open `Setting` >> `Extension` >> `Inkwell` >> `Detail` >> `Extension Option`, and enter the API key and API base URL.
+
 ## How we keep LLM translation high quality?
 
 We recommend **deepseek-v4-flash** (thinking disabled). It produces natural-sounding translations with correct formatting at about 0.005 USD per chapter (with prompt caching). The entire extension is tuned for this model.
 
-For structural quality, we use **cumulative boundaries** to detect anomalies like misplaced line breaks or mixed-language sentences. Instead of vaguely telling the LLM to "fix it," we algorithmically repair what we can, then **pinpoint the exact location of remaining anomalies** and pass those coordinates to the LLM for targeted correction. This gives the model precise context and consistently yields cleaner output.
+For keyword, we study [keywordGacha](https://github.com/neavo/KeywordGacha)'s implementation and implement it from scratch in the repo.
+
+For structural quality, we use **cumulative boundaries** to detect anomalies like misplaced line breaks or mixed-language sentences. Instead of vaguely telling the LLM to "fix it," we algorithmically repair what we can, then **pinpoint the exact location of remaining anomalies** and add comment on those coordinates to the LLM for targeted correction. This gives the model precise context and consistently yields cleaner output.
 
 ## LLM model
 
