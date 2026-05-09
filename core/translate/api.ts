@@ -1,7 +1,9 @@
 import type { Language } from '../api';
 import type { AppConfig } from '../config';
+import type { Strings } from './strings';
 import { MAX_OUTPUT_TOKENS } from './token';
-import { cleanResponse } from './post-process';
+import { TRANSLATION } from './constants';
+import { cleanResponse } from './response';
 
 export function languageName(lang: Language): string {
   const names: Record<Language, string> = {
@@ -20,15 +22,16 @@ export type ResponseFormat = { type: 'json_schema'; json_schema: { name: string;
 export async function callLlm(
   messages: Array<{ role: string; content: string }>,
   config: AppConfig,
+  strings: Strings,
   responseFormat?: ResponseFormat,
 ): Promise<string | null> {
   const body: Record<string, unknown> = {
     model: config.model,
     messages,
     max_tokens: MAX_OUTPUT_TOKENS,
-    repetition_penalty: config.repetitionPenalty,
-    temperature: config.temperature,
-    top_p: config.topP,
+    repetition_penalty: TRANSLATION.repetitionPenalty,
+    temperature: TRANSLATION.temperature,
+    top_p: TRANSLATION.topP,
     reasoning: { effort: 'none' },
   };
 
@@ -54,7 +57,7 @@ export async function callLlm(
 
     const data = await res.json();
     let content: string | undefined = data.choices?.[0]?.message?.content;
-    if (content) content = cleanResponse(content);
+    if (content) content = cleanResponse(content, strings);
     return content ?? null;
   } catch (err) {
     console.warn('[Inkwell] LLM call failed:', err);

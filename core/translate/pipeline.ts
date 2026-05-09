@@ -1,23 +1,19 @@
 import type { Language, KeywordEntry } from '../api';
 import type { AppConfig } from '../config';
 import { chunkText } from './chunking';
-import { renderTemplate, type TemplateVars } from './template';
-import { annotateKeywords, stripAnnotations, buildKeywordInjectionBlock } from './keyword';
+import { annotateKeywords, stripAnnotations } from './glossary';
 import { getPrompt } from './prompts';
-import {
-  englishRatio,
-  japaneseRatio,
-  checkEnglishRatio,
-  checkJapaneseRatio,
-  checkStructure,
-  checkLongLine,
-  checkRefusal,
-  type StructureResult,
-} from './validation';
-import { stripViolationAnnotations } from './structure-scorer';
+import { englishRatio, japaneseRatio, checkLanguage, checkStructure, checkRefusal, type RuleResult } from './rules';
+import { stripViolationAnnotations, scoreStructure } from './structure';
 import { normalizeBodyText } from '../dom';
-import { callLlm, languageName } from './llm';
+import { callLlm, languageName } from './api';
+import { getStrings } from './strings';
+import { TRANSLATION } from './constants';
 
+/**
+ * Run an array of async tasks with bounded concurrency, preserving input order
+ * in the output array. Each worker pulls the next item when idle.
+ */
 async function mapConcurrent<T, R>(
   items: T[],
   fn: (item: T, index: number) => Promise<R>,
@@ -69,9 +65,10 @@ const LANGUAGE_NAMES_IN_TARGET: Partial<Record<Language, Record<Language, string
   },
 };
 
+// User prompt prefix — single newline after instruction colon (not double).
 const USER_PROMPT_PREFIX_TEMPLATES: Partial<Record<Language, string>> = {
-  'zh-cn': '将下面的{source}文本翻译成{target}：\n\n',
-  'zh-tw': '將下面的{source}文本翻譯成{target}：\n\n',
+  'zh-cn': '将下面的{source}文本翻译成{target}：\n',
+  'zh-tw': '將下面的{source}文本翻譯成{target}：\n',
 };
 
 function buildUserPromptPrefix(sourceLang: Language, targetLang: Language): string {
@@ -82,6 +79,25 @@ function buildUserPromptPrefix(sourceLang: Language, targetLang: Language): stri
   return template.replace('{source}', sourceName).replace('{target}', targetName);
 }
 
+/**
+ * Translate a single chunk of text through the retry pipeline.
+ *
+ * Pipeline lifecycle:
+ * 1. Build initial messages: [system(prompt template), user(prefix + annotated source)]
+ * 2. Send to LLM via callLlm()
+ * 3. Clean the response: normalize whitespace-only lines, strip <thinking>/<reasoning> tags,
+ *    remove first-line artifacts ("收到，已翻譯...")
+ * 4. Always apply structure auto-fix (insert missing empty lines, restore \u3000 indent)
+ * 5. Run quality rules (language → refusal → structure) in priority order
+ * 6. Each failing rule (with remaining budget) triggers a retry:
+ *    - Push [assistant(response), user(correction)] to messages
+ *    - The assistant response may use rule-specific annotated text (e.g. structure violations)
+ *    - Repeat from step 2
+ * 7. When all rules pass (or all budgets exhausted), strip keyword annotations and
+ *    violation markers, then return the final text
+ *
+ * There can be multiple assistant messages per chunk — one per retry attempt.
+ */
 export async function translateChunk(
   rawSourceText: string,
   sourceLang: Language,
@@ -89,41 +105,48 @@ export async function translateChunk(
   config: AppConfig,
   keywords: KeywordEntry[],
 ): Promise<string> {
-  // Normalize \u3000-only lines to empty to reduce tokens
+  const strings = getStrings(targetLang);
+
+  // Normalize lines that contain only whitespace (including \u3000) to empty,
+  // then trim leading/trailing blanks — reduces token waste.
   const sourceText = normalizeBodyText(rawSourceText);
 
-  const glossaryBlock = buildKeywordInjectionBlock(keywords);
-
-  const vars: TemplateVars = {
+  const systemPrompt = getPrompt(targetLang, 'translate', {
     source_lang: languageName(sourceLang),
     target_lang: languageName(targetLang),
     target_lang_code: targetLang,
     source_lang_code: sourceLang,
-    glossary: glossaryBlock,
-  };
-  const prompt = getPrompt(targetLang, 'translate');
-  const systemPrompt = renderTemplate(prompt, vars);
+  });
 
   const userPromptPrefix = buildUserPromptPrefix(sourceLang, targetLang);
   const annotatedSource = annotateKeywords(sourceText, keywords);
 
+  // Initial message pair: system (translation prompt) + user (source text)
   const messages: Array<{ role: string; content: string }> = [
     { role: 'system', content: systemPrompt },
     { role: 'user', content: userPromptPrefix + annotatedSource },
   ];
 
-  const ruleBudget = { ...config.ruleRetryLimits };
+  // Per-rule retry budgets, decremented on each retry for that rule
+  const ruleBudget = { ...TRANSLATION.ruleRetryLimits };
   let lastResponse = '';
 
-  for (let attempt = 0; attempt < config.maxRetries; attempt++) {
-    let response = await callLlm(messages, config);
+  for (let attempt = 0; attempt < TRANSLATION.maxRetries; attempt++) {
+    let response = await callLlm(messages, config, strings);
     if (!response) {
       console.warn(`[Inkwell] Chunk attempt ${attempt + 1}: API returned null (see LLM error above), retrying...`);
       continue;
     }
-    // Normalize \u3000-only lines immediately so retries don't re-send wasted tokens
+    // Normalize whitespace-only lines immediately so retries don't re-send wasted tokens.
+    // callLlm() already applies cleanResponse() which strips <thinking>/<reasoning> and
+    // handler-like first-line artifacts ("收到，已翻譯成...").
     response = normalizeBodyText(response);
     lastResponse = response;
+
+    // Always apply structure auto-fix — insert missing empty lines, restore \u3000 indent.
+    // This runs unconditionally before any rule checks so that subsequent content rules
+    // (language, refusal) see the structurally corrected text.
+    response = scoreStructure(sourceText, response, strings).autoFixedText;
 
     const engRatio = englishRatio(response);
     const jpRatio = japaneseRatio(response);
@@ -131,62 +154,71 @@ export async function translateChunk(
     let correction = '';
     let ruleName = '';
 
-    const r = response; // const alias for null-narrowing in closures
-    const rules: Array<{
-      name: string;
-      check: () => { ok: boolean; detail: string; correction?: string };
-      correctionOverride?: string;
-    }> = [
-      { name: 'japanese', check: () => checkJapaneseRatio(r, config.maxJapaneseRatio) },
-      { name: 'english', check: () => checkEnglishRatio(r, config.maxEnglishRatio) },
-      { name: 'refusal', check: () => checkRefusal(r), correctionOverride: '請以翻譯為目的重新進行。' },
-      {
-        name: 'longline',
-        check: () => checkLongLine(sourceText, r),
-        correctionOverride:
-          '回應中有過長的段落，請在長段落中適當換行。\n回應中有過長的段落，請在長段落中適當換行。\n回應中有過長的段落，請在長段落中適當換行。',
-      },
-      {
-        name: 'structure',
-        check: () => checkStructure(sourceText, r),
-      },
+    // Freeze the auto-fixed response for rule closures so they don't track
+    // responseForRetry reassignments (which swap in annotated text for the
+    // retry assistant message).
+    const r = response;
+
+    // Quality rules checked in priority order: language → refusal → structure.
+    // The first failing rule with remaining budget triggers a retry.
+    const rules: Array<{ name: string; check: () => RuleResult }> = [
+      { name: 'language', check: () => checkLanguage(r, strings) },
+      { name: 'refusal', check: () => checkRefusal(r, strings) },
+      { name: 'structure', check: () => checkStructure(sourceText, r, strings) },
     ];
 
     for (const rule of rules) {
       const result = rule.check();
-      // Apply structure auto-fix (insert empty lines, restore \u3000 indent) when all violations are fixable
-      if (rule.name === 'structure') {
-        const sr = result as StructureResult;
-        response = sr.autoFixedText;
-      }
+
       if (!result.ok && (ruleBudget[rule.name] ?? 1) > 0) {
+        // Retry path — rule failed and still has budget
         rejectReason = result.detail;
-        correction = rule.correctionOverride ?? result.correction ?? '';
-        ruleName = rule.name;
-        // For structure: use annotated response for retry so LLM sees violation markers
-        if (ruleName === 'structure') {
-          response = (result as StructureResult).annotatedResponse;
+        correction = result.correction;
+        // Use the rule's annotated/retry response as the assistant message
+        // (e.g. structure rule provides annotated text so the LLM can see
+        // <!-- violation: --> markers)
+        if (result.responseForRetry !== undefined) {
+          response = result.responseForRetry;
         }
+        ruleName = rule.name;
         break;
+      }
+
+      if (!result.ok) {
+        // Budget exhausted — apply rule-specific fallback (auto-fix) if provided,
+        // but do NOT retry. The response is updated in place so the next rule
+        // checks the fixed version.
+        if (result.responseOnBudgetExhausted !== undefined) {
+          response = result.responseOnBudgetExhausted;
+        }
+        // Continue to next rule (don't break)
       }
     }
 
-    if (rejectReason && attempt < config.maxRetries - 1) {
+    if (rejectReason && attempt < TRANSLATION.maxRetries - 1) {
       ruleBudget[ruleName] = (ruleBudget[ruleName] ?? 1) - 1;
       console.log(
         `[Inkwell] Reject attempt ${attempt + 1}: ${rejectReason} | eng=${engRatio.toFixed(3)} jp=${jpRatio.toFixed(3)}`,
       );
+      // Append the failing response as the assistant message and the
+      // correction as the user message for the retry
       messages.push({ role: 'assistant', content: response });
       messages.push({ role: 'user', content: correction });
       continue;
     }
 
+    // All rules passed (or all budgets exhausted) — return the clean translation
     return stripAnnotations(stripViolationAnnotations(response), keywords);
   }
 
+  // All retries exhausted — return whatever we have
   return stripAnnotations(stripViolationAnnotations(lastResponse), keywords);
 }
 
+/**
+ * Translate a full chapter body by splitting it into chunks and translating
+ * each chunk in parallel with the configured concurrency.
+ */
 export async function translateChapter(
   body: string,
   sourceLanguage: Language,

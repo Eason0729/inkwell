@@ -1,14 +1,8 @@
 import type { Language, KeywordEntry } from '../api';
 import type { AppConfig } from '../config';
-import { renderTemplate, type TemplateVars } from './template';
+import type { Strings } from './strings';
 import { getPrompt } from './prompts';
-import { callLlm, languageName, type ResponseFormat } from './llm';
-
-export function buildKeywordInjectionBlock(keywords: KeywordEntry[]): string {
-  if (keywords.length === 0) return '';
-  const lines = keywords.map((k) => `${k.src} = ${k.dst}${k.info ? '  (' + k.info + ')' : ''}`);
-  return '[Glossary]\n' + lines.join('\n');
-}
+import { callLlm, languageName, type ResponseFormat } from './api';
 
 export function annotateKeywords(text: string, keywords: KeywordEntry[]): string {
   const sorted = [...keywords].filter((k) => k.src && k.dst).sort((a, b) => b.src.length - a.src.length);
@@ -32,50 +26,52 @@ export function stripAnnotations(text: string, keywords: KeywordEntry[]): string
   return result;
 }
 
-const KEYWORD_SCHEMA: ResponseFormat = {
-  type: 'json_schema',
-  json_schema: {
-    name: 'keywords',
-    strict: true,
-    schema: {
-      type: 'object',
-      properties: {
-        keywords: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              src: { type: 'string', description: '原始術語（日文）' },
-              dst: { type: 'string', description: '繁體中文翻譯' },
-              info: { type: 'string', description: '簡短的說明或上下文' },
+function buildKeywordSchema(strings: Strings): ResponseFormat {
+  const s = strings.keywordSchema;
+  return {
+    type: 'json_schema',
+    json_schema: {
+      name: 'keywords',
+      strict: true,
+      schema: {
+        type: 'object',
+        properties: {
+          keywords: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                src: { type: 'string', description: s.srcDesc },
+                dst: { type: 'string', description: s.dstDesc },
+                info: { type: 'string', description: s.infoDesc },
+              },
+              required: ['src', 'dst', 'info'],
+              additionalProperties: false,
             },
-            required: ['src', 'dst', 'info'],
-            additionalProperties: false,
           },
         },
+        required: ['keywords'],
+        additionalProperties: false,
       },
-      required: ['keywords'],
-      additionalProperties: false,
     },
-  },
-};
+  };
+}
 
 export async function extractKeywordsFromBody(
   body: string,
   sourceLanguage: Language,
   config: AppConfig,
+  strings: Strings,
   targetLang?: Language,
 ): Promise<KeywordEntry[]> {
   const targetLanguage = targetLang ?? 'zh-tw';
 
-  const vars: TemplateVars = {
+  const systemPrompt = getPrompt(targetLanguage, 'keywordExtract', {
     source_lang: languageName(sourceLanguage),
     target_lang: languageName(targetLanguage),
     target_lang_code: targetLanguage,
     source_lang_code: sourceLanguage,
-  };
-  const prompt = getPrompt(targetLanguage, 'keywordExtract');
-  const systemPrompt = renderTemplate(prompt, vars);
+  });
 
   const t0 = performance.now();
   const response = await callLlm(
@@ -84,7 +80,8 @@ export async function extractKeywordsFromBody(
       { role: 'user', content: body },
     ],
     config,
-    KEYWORD_SCHEMA,
+    strings,
+    buildKeywordSchema(strings),
   );
   const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
   console.log(`[Inkwell] Keyword extraction took ${elapsed}s`);

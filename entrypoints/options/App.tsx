@@ -111,20 +111,6 @@ export function App() {
               </div>
             </Section>
 
-            <Section title="Context Limits">
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-sm text-gray-400 mb-1.5">Chunk Size</label>
-                  <input
-                    type="number"
-                    value={config.chunkSize}
-                    onInput={(e) => updateConfig({ chunkSize: parseInt((e.target as HTMLInputElement).value) || 600 })}
-                    class="input"
-                  />
-                </div>
-              </div>
-            </Section>
-
             <Section title="Translation">
               <div class="py-2.5 border-b border-gray-800/50">
                 <label class="block text-sm text-gray-200 mb-1.5">Target language</label>
@@ -154,6 +140,16 @@ export function App() {
                   class="input"
                 />
                 <p class="text-xs text-gray-600 mt-1">Number of concurrent LLM requests for chunk processing.</p>
+              </div>
+              <div class="py-2.5 border-b border-gray-800/50">
+                <label class="block text-sm text-gray-200 mb-1.5">Chunk Size</label>
+                <input
+                  type="number"
+                  value={config.chunkSize}
+                  onInput={(e) => updateConfig({ chunkSize: parseInt((e.target as HTMLInputElement).value) || 600 })}
+                  class="input"
+                />
+                <p class="text-xs text-gray-600 mt-1">Number of token for each translation chunk.</p>
               </div>
               <Toggle
                 label="Preemptive next-chapter"

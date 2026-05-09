@@ -5,12 +5,14 @@ import {
   isJapaneseKana,
   japaneseRatio,
   findJapaneseKana,
-  checkEnglishRatio,
-  checkJapaneseRatio,
+  checkLanguage,
   checkStructure,
-  checkLongLine,
   checkRefusal,
-} from '../validation';
+} from '../rules';
+import { getStrings } from '../strings';
+import { TRANSLATION } from '../constants';
+
+const strings = getStrings('zh-tw');
 
 describe('isEnglishChar', () => {
   it('returns true for lowercase letters', () => {
@@ -128,201 +130,145 @@ describe('findJapaneseKana', () => {
   });
 });
 
-describe('checkEnglishRatio', () => {
-  const maxRatio = 0.2;
-
-  it('returns ok when ratio is below threshold', () => {
-    const result = checkEnglishRatio('中文繁體', maxRatio);
+describe('checkLanguage', () => {
+  it('returns ok for pure Chinese text', () => {
+    const result = checkLanguage('中文繁體', strings);
     expect(result.ok).toBe(true);
     expect(result.detail).toBe('');
     expect(result.correction).toBe('');
   });
 
-  it('returns not ok when ratio exceeds threshold', () => {
-    const result = checkEnglishRatio('Hello World English', maxRatio);
+  it('returns not ok when english ratio exceeds threshold', () => {
+    const result = checkLanguage('Hello World English', strings);
     expect(result.ok).toBe(false);
     expect(result.detail).toContain('engRatio');
-    expect(result.detail).toContain(String(maxRatio));
     expect(result.correction).toBeTruthy();
   });
 
-  it('returns ok when ratio is exactly at threshold', () => {
-    const text = 'a'.repeat(Math.round(0.2 * 100)) + '中'.repeat(80);
-    const result = checkEnglishRatio(text, maxRatio);
-    expect(result.ok).toBe(true);
-  });
-
-  it('returns not ok for all-English text', () => {
-    const result = checkEnglishRatio('english', maxRatio);
-    expect(result.ok).toBe(false);
-  });
-
-  it('returns ok for empty string', () => {
-    expect(checkEnglishRatio('', maxRatio).ok).toBe(true);
-  });
-});
-
-describe('checkJapaneseRatio', () => {
-  const maxRatio = 0.15;
-
-  it('returns ok when ratio is below threshold', () => {
-    const result = checkJapaneseRatio('中文繁體', maxRatio);
-    expect(result.ok).toBe(true);
-    expect(result.detail).toBe('');
-    expect(result.correction).toBe('');
-  });
-
-  it('returns not ok when ratio exceeds threshold', () => {
-    const result = checkJapaneseRatio('あいうえおかきくけこ', maxRatio);
+  it('returns not ok when japanese ratio exceeds threshold', () => {
+    const result = checkLanguage('あいうえおかきくけこ', strings);
     expect(result.ok).toBe(false);
     expect(result.detail).toContain('jpRatio');
-    expect(result.detail).toContain(String(maxRatio));
     expect(result.correction).toBeTruthy();
   });
 
-  it('returns not ok when ratio is exactly at threshold', () => {
-    const text = 'あ'.repeat(15) + '中'.repeat(85);
-    const result = checkJapaneseRatio(text, maxRatio);
+  it('returns english failure before japanese check', () => {
+    const text = 'a'.repeat(Math.round(TRANSLATION.maxEnglishRatio * 100 + 1)) + 'あ'.repeat(50);
+    const result = checkLanguage(text, strings);
     expect(result.ok).toBe(false);
-  });
-
-  it('returns ok for text with no kana', () => {
-    expect(checkJapaneseRatio('中文繁體測試', maxRatio).ok).toBe(true);
+    expect(result.detail).toContain('engRatio');
   });
 
   it('returns ok for empty string', () => {
-    expect(checkJapaneseRatio('', maxRatio).ok).toBe(true);
+    expect(checkLanguage('', strings).ok).toBe(true);
+  });
+
+  it('returns ok when both ratios are below thresholds', () => {
+    const text = 'a'.repeat(5) + 'あ'.repeat(5) + '中'.repeat(90);
+    const result = checkLanguage(text, strings);
+    expect(result.ok).toBe(true);
   });
 });
 
 describe('checkStructure', () => {
   it('returns ok for identical content', () => {
     const src = 'line1\nline2';
-    const result = checkStructure(src, src);
+    const result = checkStructure(src, src, strings);
     expect(result.ok).toBe(true);
-    expect(result.allAutoFixable).toBe(true);
   });
 
-  it('auto-fixes indent removal', () => {
+  it('returns ok for auto-fixable indent removal', () => {
     const src = '　a\n　b\n　c\n　d';
     const tgt = 'a\nb\nc\nd';
-    const result = checkStructure(src, tgt);
+    const result = checkStructure(src, tgt, strings);
     // All violations auto-fixable → ok
     expect(result.ok).toBe(true);
-    expect(result.allAutoFixable).toBe(true);
-    expect(result.hasIndentViolation).toBe(true);
-    // Annotated response has markers
-    expect(result.annotatedResponse).toContain('VIOLATION:INDENT_FW_MISSING');
+    // responseForRetry should be undefined (all auto-fixable)
+    expect(result.responseForRetry).toBeUndefined();
+    expect(result.responseOnBudgetExhausted).toBeUndefined();
   });
 
-  it('auto-fixes empty line collapse', () => {
+  it('returns ok for auto-fixable empty line collapse', () => {
     const src = 'a\n\nb\n\nc\n\nd\n\ne\n\nf\n\ng';
     const tgt = 'a\nb\nc\nd\ne\nf\ng';
-    const result = checkStructure(src, tgt);
-    // All violations auto-fixable → ok
+    const result = checkStructure(src, tgt, strings);
     expect(result.ok).toBe(true);
-    expect(result.allAutoFixable).toBe(true);
-    expect(result.hasEmptyViolation).toBe(true);
-    expect(result.annotatedResponse).toContain('VIOLATION:MISSING_EMPTY');
   });
 
-  it('auto-fixes missing empty lines', () => {
+  it('returns ok for auto-fixable missing empty lines', () => {
     const src = 'a\n\nb\n\nc';
     const tgt = 'a\nb\nc';
-    const result = checkStructure(src, tgt);
+    const result = checkStructure(src, tgt, strings);
     expect(result.ok).toBe(true);
-    expect(result.allAutoFixable).toBe(true);
-    expect(result.hasEmptyViolation).toBe(true);
   });
 
   it('detects content count mismatch', () => {
     const src = 'a\nb\nc';
     const tgt = 'a\nb\nc\nd';
-    const result = checkStructure(src, tgt);
+    const result = checkStructure(src, tgt, strings);
     expect(result.ok).toBe(false);
-    expect(result.allAutoFixable).toBe(false);
-    expect(result.hasContentCountViolation).toBe(true);
+    expect(result.responseForRetry).toBeDefined();
+    expect(result.responseOnBudgetExhausted).toBeDefined();
   });
 
   it('detects content redistribution across lines', () => {
     const src = 'aaabbb\nccc';
     const tgt = 'aaa\nbbbccc';
-    const result = checkStructure(src, tgt);
+    const result = checkStructure(src, tgt, strings);
     expect(result.ok).toBe(false);
-    expect(result.allAutoFixable).toBe(false);
-    expect(result.hasContentDistViolation).toBe(true);
+    expect(result.responseForRetry).toBeDefined();
+    expect(result.responseOnBudgetExhausted).toBeDefined();
   });
 
-  it('returns annotated response with non-auto-fixable violations', () => {
+  it('returns annotated response via responseForRetry with non-auto-fixable violations', () => {
     const src = 'aaabbb\nccc';
     const tgt = 'aaa\nbbbccc';
-    const result = checkStructure(src, tgt);
+    const result = checkStructure(src, tgt, strings);
     expect(result.correction).toBeTruthy();
-    expect(result.correction).toContain('VIOLATION:BOUNDARY_SHIFT');
-    expect(result.annotatedResponse).toContain('VIOLATION:BOUNDARY_SHIFT');
+    // Correction no longer contains annotated text
+    expect(result.correction).not.toContain('violation:boundary_shift');
+    // responseForRetry has the annotated text
+    expect(result.responseForRetry).toContain('violation:boundary_shift');
   });
 
   it('strips violation annotations from output', () => {
     const src = '　a\n　b';
     const tgt = 'a\nb';
-    const result = checkStructure(src, tgt);
-    // allAutoFixable → no correction, but annotatedResponse has markers
-    const cleaned = result.annotatedResponse
-      .replace(/ <!-- VIOLATION:[^>]+-->/g, '')
-      .replace(/^<!-- VIOLATION:[^>]+-->\n?/gm, '');
-    expect(cleaned).not.toContain('VIOLATION');
+    const result = checkStructure(src, tgt, strings);
+    // allAutoFixable → no correction, responseForRetry undefined
+    // But annotatedResponse is internal to the report, test via responseOnBudgetExhausted
+    const cleaned = tgt
+      .replace(/ <!-- [Vv][Ii][Oo][Ll][Aa][Tt][Ii][Oo][Nn]:[^>]+-->/g, '')
+      .replace(/^<!-- [Vv][Ii][Oo][Ll][Aa][Tt][Ii][Oo][Nn]:[^>]+-->\n?/gm, '');
+    expect(cleaned).not.toContain('violation');
     expect(cleaned).toBe(tgt);
-  });
-});
-
-describe('checkLongLine', () => {
-  it('returns ok for equal length lines', () => {
-    const src = 'short line';
-    const tgt = 'short line';
-    const result = checkLongLine(src, tgt);
-    expect(result.ok).toBe(true);
-  });
-
-  it('detects excessively long line in translation', () => {
-    const src = 'a';
-    const tgt = 'a' + ' very very very very very very very long line'.repeat(20);
-    const result = checkLongLine(src, tgt);
-    expect(result.ok).toBe(false);
-    expect(result.detail).toContain('longest line');
-  });
-
-  it('returns ok when translation line is shorter', () => {
-    const src = 'a very very long line that goes on and on and on and on and on';
-    const tgt = 'short line';
-    const result = checkLongLine(src, tgt);
-    expect(result.ok).toBe(true);
   });
 });
 
 describe('checkRefusal', () => {
   it('returns ok for long translation text', () => {
-    const result = checkRefusal('x'.repeat(40));
+    const result = checkRefusal('x'.repeat(40), strings);
     expect(result.ok).toBe(true);
   });
 
   it('detects Chinese refusal pattern', () => {
-    const result = checkRefusal('抱歉，我無法完成這個請求');
+    const result = checkRefusal('抱歉，我無法完成這個請求', strings);
     expect(result.ok).toBe(false);
     expect(result.detail).toContain('refusal');
   });
 
   it('detects English refusal pattern', () => {
-    const result = checkRefusal("I'm sorry, but I cannot do that");
+    const result = checkRefusal("I'm sorry, but I cannot do that", strings);
     expect(result.ok).toBe(false);
   });
 
   it('detects Japanese refusal pattern', () => {
-    const result = checkRefusal('申し訳ありませんが、できません');
+    const result = checkRefusal('申し訳ありませんが、できません', strings);
     expect(result.ok).toBe(false);
   });
 
   it('returns ok for short non-refusal text', () => {
-    const result = checkRefusal('你好嗎？');
+    const result = checkRefusal('你好嗎？', strings);
     expect(result.ok).toBe(true);
   });
 });

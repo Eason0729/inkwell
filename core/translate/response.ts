@@ -1,8 +1,9 @@
+import type { Strings } from './strings';
+
 const THINKING_PATTERN = /<thinking>[\s\S]*?<\/thinking>/g;
 const REASONING_PATTERN = /<reasoning>[\s\S]*?<\/reasoning>/g;
 
 const FIRST_LINE_TRAILING_PATTERN = /^.*?[:：]\*?$/;
-const TRANSLATION_FIRST_LINE_PATTERN = /^(translation|翻译|翻譯|繁體|收到，已|原文行數|完成一致)/i;
 
 /** Strip only leading/trailing newlines. Preserve all other whitespace (spaces, tabs, \u3000) as they carry indentation. */
 const NEWLINE_TRIM = /^[\n\r]+|[\n\r]+$/g;
@@ -15,7 +16,7 @@ export function stripTags(text: string): string {
   return text.replace(THINKING_PATTERN, '').replace(REASONING_PATTERN, '').replace(NEWLINE_TRIM, '');
 }
 
-export function cleanResponse(text: string): string {
+export function cleanResponse(text: string, strings: Strings): string {
   text = trimNewlines(text);
   text = stripTags(text);
   const lines = text.split('\n');
@@ -26,7 +27,7 @@ export function cleanResponse(text: string): string {
       lines.shift();
       continue;
     }
-    if (TRANSLATION_FIRST_LINE_PATTERN.test(first)) {
+    if (strings.firstLineCleanPattern.test(first)) {
       lines.shift();
       continue;
     }

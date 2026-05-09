@@ -1,8 +1,9 @@
 import type { TranslationRequest, TranslationResponse, Language } from './api';
 import type { AppConfig } from './config';
 import { loadConfig } from './config';
-import { translateChapter } from './translate/index';
-import { extractKeywordsFromBody } from './translate/keyword';
+import { translateChapter } from './translate/pipeline';
+import { extractKeywordsFromBody } from './translate/glossary';
+import { getStrings } from './translate/strings';
 import {
   upsertNovel,
   getNovel,
@@ -86,10 +87,11 @@ async function doTranslateChapter(req: TranslationRequest, cacheKey: string): Pr
 
     console.log('[Inkwell] Cache miss:', cacheKey);
     const targetLang: Language = config.targetLanguage;
+    const strings = getStrings(targetLang);
 
     let keywords = await getKeywords(providerId, novelId);
     if (keywords.length === 0) {
-      const extracted = await extractKeywordsFromBody(body, sourceLanguage, config, targetLang);
+      const extracted = await extractKeywordsFromBody(body, sourceLanguage, config, strings, targetLang);
       await mergeKeywords(providerId, novelId, extracted);
       keywords = await getKeywords(providerId, novelId);
     }

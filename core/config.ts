@@ -9,14 +9,7 @@ export interface AppConfig {
   targetLanguage: Language;
   autoTranslate: boolean;
   enablePreemptive: boolean;
-  repetitionPenalty: number;
-  temperature: number;
-  topP: number;
   parallelism: number;
-  maxRetries: number;
-  maxEnglishRatio: number;
-  maxJapaneseRatio: number;
-  ruleRetryLimits: Record<string, number>;
 }
 
 const STORAGE_KEY = 'inkwell-config';
@@ -29,14 +22,7 @@ const DEFAULT_CONFIG: AppConfig = {
   targetLanguage: 'zh-tw',
   autoTranslate: true,
   enablePreemptive: true,
-  repetitionPenalty: 1.05,
-  temperature: 0.1,
-  topP: 0.3,
   parallelism: 16,
-  maxRetries: 10,
-  maxEnglishRatio: 0.2,
-  maxJapaneseRatio: 0.2,
-  ruleRetryLimits: { english: 2, japanese: 3, longline: 1, refusal: 1, structure: 10 },
 };
 
 export async function loadConfig(): Promise<AppConfig> {
