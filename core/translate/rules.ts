@@ -30,8 +30,7 @@ export function checkEnglishRatio(text: string, maxRatio: number): { ok: boolean
     return {
       ok: false,
       detail: `engRatio=${ratio.toFixed(3)} > ${maxRatio}`,
-      correction:
-        '回覆中幾乎都是英文內容，你有翻譯嗎？拜託翻譯一下\n請全部翻譯成繁體中文!請全部翻譯成繁體中文!請全部翻譯成繁體中文!',
+      correction: '回覆中幾乎都是英文內容\n請全部翻譯成繁體中文!\n請全部翻譯成繁體中文!\n請全部翻譯成繁體中文!',
     };
   }
   return { ok: true, detail: '', correction: '' };
@@ -46,8 +45,7 @@ export function checkJapaneseRatio(
     return {
       ok: false,
       detail: `jpRatio=${ratio.toFixed(3)} >= ${maxRatio}`,
-      correction:
-        '回覆中幾乎都是日文內容，你有翻譯嗎？拜託翻譯一下\n請全部翻譯成繁體中文!請全部翻譯成繁體中文!請全部翻譯成繁體中文!',
+      correction: '回覆中幾乎都是日文內容\n請全部翻譯成繁體中文!\n請全部翻譯成繁體中文!\n請全部翻譯成繁體中文!',
     };
   }
   return { ok: true, detail: '', correction: '' };

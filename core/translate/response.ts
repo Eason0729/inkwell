@@ -4,19 +4,19 @@ const REASONING_PATTERN = /<reasoning>[\s\S]*?<\/reasoning>/g;
 const FIRST_LINE_TRAILING_PATTERN = /^.*?[:：]\*?$/;
 const TRANSLATION_FIRST_LINE_PATTERN = /^(translation|翻译|翻譯|繁體|收到，已|原文行數|完成一致)/i;
 
-/** Trim only ASCII whitespace (space, tab, newline, carriage return), preserving \u3000 and other Unicode whitespace. */
-const ASCII_WS = /^[ \t\n\r]+|[ \t\n\r]+$/g;
+/** Strip only leading/trailing newlines. Preserve all other whitespace (spaces, tabs, \u3000) as they carry indentation. */
+const NEWLINE_TRIM = /^[\n\r]+|[\n\r]+$/g;
 
-function trimAscii(text: string): string {
-  return text.replace(ASCII_WS, '');
+function trimNewlines(text: string): string {
+  return text.replace(NEWLINE_TRIM, '');
 }
 
 export function stripTags(text: string): string {
-  return text.replace(THINKING_PATTERN, '').replace(REASONING_PATTERN, '').replace(ASCII_WS, '');
+  return text.replace(THINKING_PATTERN, '').replace(REASONING_PATTERN, '').replace(NEWLINE_TRIM, '');
 }
 
 export function cleanResponse(text: string): string {
-  text = trimAscii(text);
+  text = trimNewlines(text);
   text = stripTags(text);
   const lines = text.split('\n');
 
@@ -37,5 +37,5 @@ export function cleanResponse(text: string): string {
     break;
   }
 
-  return trimAscii(lines.join('\n'));
+  return trimNewlines(lines.join('\n'));
 }

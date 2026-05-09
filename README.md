@@ -19,7 +19,7 @@ Install the extension, and open `Setting` >> `Extension` >> `Inkwell` >> `Detail
 
 ## How we keep LLM translation high quality?
 
-We recommend **deepseek-v4-flash** (thinking disabled). It produces natural-sounding translations with correct formatting at about 0.005 USD per chapter (with prompt caching). The entire extension is tuned for this model.
+We recommend **deepseek-v4-flash** (thinking disabled). It produces natural-sounding translations with correct formatting, and cost about 0.002833 USD per 3000 char chapter. The entire extension is tuned for this model.
 
 For keyword, we study [keywordGacha](https://github.com/neavo/KeywordGacha)'s implementation and implement it from scratch in the repo.
 
