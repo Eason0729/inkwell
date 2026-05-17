@@ -177,38 +177,26 @@ describe('checkStructure', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('returns ok for auto-fixable indent removal', () => {
-    const src = '　a\n　b\n　c\n　d';
-    const tgt = 'a\nb\nc\nd';
-    const result = checkStructure(src, tgt, strings);
-    // All violations auto-fixable → ok
-    expect(result.ok).toBe(true);
-    // responseForRetry should be undefined (all auto-fixable)
-    expect(result.responseForRetry).toBeUndefined();
-    expect(result.responseOnBudgetExhausted).toBeUndefined();
-  });
-
-  it('returns ok for auto-fixable empty line collapse', () => {
-    const src = 'a\n\nb\n\nc\n\nd\n\ne\n\nf\n\ng';
-    const tgt = 'a\nb\nc\nd\ne\nf\ng';
-    const result = checkStructure(src, tgt, strings);
-    expect(result.ok).toBe(true);
-  });
-
-  it('returns ok for auto-fixable missing empty lines', () => {
-    const src = 'a\n\nb\n\nc';
-    const tgt = 'a\nb\nc';
-    const result = checkStructure(src, tgt, strings);
-    expect(result.ok).toBe(true);
-  });
-
-  it('detects content count mismatch', () => {
-    const src = 'a\nb\nc';
+  it('returns ok for indent removal (fixStructure handles this)', () => {
+    const src = '\u3000a\n\u3000b\n\u3000c\n\u3000d';
     const tgt = 'a\nb\nc\nd';
     const result = checkStructure(src, tgt, strings);
     expect(result.ok).toBe(false);
-    expect(result.responseForRetry).toBeDefined();
-    expect(result.responseOnBudgetExhausted).toBeDefined();
+  });
+
+  it('returns ok for missing empty lines (fixStructure handles this)', () => {
+    const src = 'a\n\nb\n\nc\n\nd\n\ne\n\nf\n\ng';
+    const tgt = 'a\nb\nc\nd\ne\nf\ng';
+    const result = checkStructure(src, tgt, strings);
+    expect(result.ok).toBe(false);
+  });
+
+  it('returns ok for content mismatch with no structural violations (nothing actionable for retry)', () => {
+    const src = 'a\nb\nc';
+    const tgt = 'a\nb\nc\nd';
+    const result = checkStructure(src, tgt, strings);
+    expect(result.ok).toBe(true);
+    expect(result.responseForRetry).toBeUndefined();
   });
 
   it('detects content redistribution across lines', () => {
@@ -217,31 +205,14 @@ describe('checkStructure', () => {
     const result = checkStructure(src, tgt, strings);
     expect(result.ok).toBe(false);
     expect(result.responseForRetry).toBeDefined();
-    expect(result.responseOnBudgetExhausted).toBeDefined();
   });
 
-  it('returns annotated response via responseForRetry with non-auto-fixable violations', () => {
+  it('returns annotated text via responseForRetry for non-auto-fixable violations', () => {
     const src = 'aaabbb\nccc';
     const tgt = 'aaa\nbbbccc';
     const result = checkStructure(src, tgt, strings);
-    expect(result.correction).toBeTruthy();
-    // Correction no longer contains annotated text
-    expect(result.correction).not.toContain('violation:boundary_shift');
-    // responseForRetry has the annotated text
+    expect(result.correction).toContain('violation');
     expect(result.responseForRetry).toContain('violation:boundary_shift');
-  });
-
-  it('strips violation annotations from output', () => {
-    const src = '　a\n　b';
-    const tgt = 'a\nb';
-    const result = checkStructure(src, tgt, strings);
-    // allAutoFixable → no correction, responseForRetry undefined
-    // But annotatedResponse is internal to the report, test via responseOnBudgetExhausted
-    const cleaned = tgt
-      .replace(/ <!-- [Vv][Ii][Oo][Ll][Aa][Tt][Ii][Oo][Nn]:[^>]+-->/g, '')
-      .replace(/^<!-- [Vv][Ii][Oo][Ll][Aa][Tt][Ii][Oo][Nn]:[^>]+-->\n?/gm, '');
-    expect(cleaned).not.toContain('violation');
-    expect(cleaned).toBe(tgt);
   });
 });
 

@@ -57,6 +57,13 @@ function buildKeywordSchema(strings: Strings): ResponseFormat {
   };
 }
 
+function cleanResponse(response: string): string {
+  if (response.startsWith('```')) {
+    response = response.replace(/^```(json)+\n?/, '').replace(/\n?```$/, '');
+  }
+  return response;
+}
+
 export async function extractKeywordsFromBody(
   body: string,
   sourceLanguage: Language,
@@ -89,7 +96,7 @@ export async function extractKeywordsFromBody(
   if (!response) return [];
 
   try {
-    const parsed = JSON.parse(response);
+    const parsed = JSON.parse(cleanResponse(response));
     const arr = Array.isArray(parsed) ? parsed : (parsed.keywords ?? parsed.terms ?? []);
     return arr
       .filter((item: { src?: string }) => item.src && typeof item.src === 'string')

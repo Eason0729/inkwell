@@ -1,22 +1,13 @@
 import { estimateTokens } from './token';
-import { scoreStructure, stripViolationAnnotations } from './structure';
+import { findViolations, type ViolationReport } from './structure';
 import type { Strings } from './strings';
 import { TRANSLATION } from './constants';
 
-// ── Generic rule result interface ──
-//
-// Each rule returns a result through this interface.
-// The pipeline uses `responseForRetry` (showed to the LLM as the assistant
-// message on retry) and `responseOnBudgetExhausted` (auto-fix when giving up
-// on retries for this rule) without knowing rule-specific internals.
 export interface RuleResult {
   ok: boolean;
   detail: string;
   correction: string;
-  /** Response to show as assistant message on retry (default: original response). */
   responseForRetry?: string;
-  /** Response to use when budget exhausted — auto-fixed text (default: original response). */
-  responseOnBudgetExhausted?: string;
 }
 
 export function isEnglishChar(c: string): boolean {
@@ -50,11 +41,6 @@ export function findJapaneseKana(text: string): string[] {
   return [...seen].sort();
 }
 
-/**
- * Combined language rule: checks both english and japanese ratios.
- * Returns the first failing check (english checked first).
- * Both ratios share a single retry budget.
- */
 export function checkLanguage(text: string, strings: Strings): RuleResult {
   const engR = englishRatio(text);
   if (engR > TRANSLATION.maxEnglishRatio) {
@@ -76,21 +62,15 @@ export function checkLanguage(text: string, strings: Strings): RuleResult {
 }
 
 export function checkStructure(source: string, translation: string, strings: Strings): RuleResult {
-  const report = scoreStructure(source, translation, strings);
+  const report = findViolations(source, translation, strings);
 
-  // Must have matching content count and all violations must be auto-fixable
-  const contentMatch = /content=\d+=\d+/.test(report.summary);
-  const allAutoFixable =
-    contentMatch && (report.violations.length === 0 || report.violations.every((v) => v.canAutoFix));
+  const ok = report.violations.length === 0;
 
   return {
-    ok: allAutoFixable,
+    ok,
     detail: report.summary,
     correction: strings.correction.structureViolation,
-    // On retry: show the LLM annotated text so it can see violation markers
-    responseForRetry: allAutoFixable ? undefined : report.annotatedText,
-    // When budget exhausted: apply auto-fix (insert empty lines, restore indent)
-    responseOnBudgetExhausted: allAutoFixable ? undefined : stripViolationAnnotations(report.autoFixedText),
+    responseForRetry: !ok && report.violations.length > 0 ? report.annotatedText : undefined,
   };
 }
 

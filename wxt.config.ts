@@ -1,7 +1,6 @@
 import { defineConfig } from 'wxt';
 
 export default defineConfig({
-  extensionApi: 'webextension-polyfill',
   manifest: ({ browser, manifestVersion }) => ({
     name: 'Inkwell',
     description: 'Novel translating browser extension',
@@ -15,6 +14,7 @@ export default defineConfig({
       'https://syosetu.org/*',
       'https://syosetu.com/*',
       'https://www.pixiv.net/*',
+      'https://ollama.com/v1/*',
     ],
     ...(browser === 'firefox' && manifestVersion === 2
       ? {

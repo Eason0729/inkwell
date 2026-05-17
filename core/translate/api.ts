@@ -32,7 +32,8 @@ export async function callLlm(
     repetition_penalty: TRANSLATION.repetitionPenalty,
     temperature: TRANSLATION.temperature,
     top_p: TRANSLATION.topP,
-    reasoning: { effort: 'none' },
+    reasoning: { effort: config.reasoningEffort },
+    reasoning_effort: config.reasoningEffort,
   };
 
   if (responseFormat) {

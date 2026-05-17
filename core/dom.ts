@@ -19,17 +19,14 @@ export interface ProviderDefinition {
   };
 }
 
-/**
- * Remove \u3000 from lines that have no other printable content.
- * These lines represent blank visual lines; stripping the ideographic space
- * reduces token usage without losing structural meaning.
- */
-export function normalizeBodyText(text: string): string {
-  const lines = text.split('\n').map((l) => (l.trim() === '' ? '' : l));
-  // Remove leading/trailing empty lines without stripping \u3000 prefixes
-  while (lines.length > 0 && lines[0] === '') lines.shift();
-  while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
-  return lines.join('\n');
+function removeHTMLMark(text: string): string {
+  const marks = ['nbsp'];
+
+  for (const mark of marks) {
+    text = text.replaceAll(`&${mark};`, '').replaceAll(`&${mark}`, '');
+  }
+
+  return text;
 }
 
 /**
@@ -45,12 +42,11 @@ export function extractBodyText(element: HTMLElement): string {
   const children = Array.from(element.children);
   const pChildren = children.filter((el) => el.tagName === 'P');
 
-  // Per-<p> extraction when every direct child is a <p>
   if (pChildren.length > 0 && pChildren.length === children.length) {
-    return normalizeBodyText(pChildren.map((el) => (el as HTMLElement).innerText ?? '').join('\n'));
+    return removeHTMLMark(pChildren.map((el) => (el as HTMLElement).innerText ?? '').join('\n'));
   }
 
-  return normalizeBodyText(element.innerText?.trim() ?? '');
+  return removeHTMLMark(element.innerText?.trim() ?? '');
 }
 
 export function extractChapterFromDom(provider: ProviderDefinition): { title: string; body: string } | null {

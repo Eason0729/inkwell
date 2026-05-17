@@ -1,8 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest';
 
-// We test extractBodyText by constructing DOM trees.
-// The function is imported from dom.ts, which requires DOM APIs.
 describe('extractBodyText', () => {
   it('extracts per-<p> when all children are <p> and strips \\u3000-only lines', async () => {
     const { extractBodyText } = await import('../dom');
@@ -16,7 +14,6 @@ describe('extractBodyText', () => {
     `;
 
     const result = extractBodyText(container);
-    // \u3000-only line stripped to empty, but structure preserved
     expect(result).toBe('line1\nline2\n\nline3');
   });
 
@@ -33,11 +30,9 @@ describe('extractBodyText', () => {
     `;
 
     const result = extractBodyText(container);
-    // \u3000-only lines become empty, preserving line count
     expect(result).toBe('──澄目村 石碑『澄鏡ノ辞』\n\n\n\n■');
     const lines = result.split('\n');
     expect(lines).toHaveLength(5);
-    // 3 empty lines where \u3000 was
     expect(lines.filter((l) => l === '')).toHaveLength(3);
   });
 
@@ -52,7 +47,6 @@ describe('extractBodyText', () => {
     `;
 
     const result = extractBodyText(container);
-    // Mixed children → container innerText
     expect(result).toBeTruthy();
     expect(result).toContain('line1');
     expect(result).toContain('inline');
@@ -66,7 +60,6 @@ describe('extractBodyText', () => {
     container.innerHTML = '<p>only paragraph</p>';
 
     const result = extractBodyText(container);
-    // Single <p> child → per-element extraction is fine
     expect(result).toBe('only paragraph');
   });
 
@@ -87,19 +80,9 @@ describe('extractBodyText', () => {
     expect(result).toBe('just text');
   });
 
-  it('normalizeBodyText strips \\u3000-only lines', async () => {
-    const { normalizeBodyText } = await import('../dom');
-
-    expect(normalizeBodyText('a\n\u3000\nb')).toBe('a\n\nb');
-    expect(normalizeBodyText('\u3000\na')).toBe('a');
-    // \u3000 at start of text is trimmed (same as innerText.trim())
-    expect(normalizeBodyText('\u3000Hello\nWorld')).toBe('\u3000Hello\nWorld');
-  });
-
   it('does not introduce extra newlines from whitespace between <p> tags', async () => {
     const { extractBodyText } = await import('../dom');
 
-    // HTML with lots of whitespace between tags (simulating typical minified or formatted HTML)
     const container = document.createElement('div');
     container.innerHTML =
       '<p>「空を見て、空が見てくれる。それが神の在り方」</p>\n' +
@@ -118,7 +101,6 @@ describe('extractBodyText', () => {
     expect(lines[0]).toBe('「空を見て、空が見てくれる。それが神の在り方」');
     expect(lines[1]).toBe('「われらの顔は空にうつる。ならば空に笑顔をささげよう」');
     expect(lines[2]).toBe('「泣く者は澱に落ちる。笑う者は、空に引かれる」');
-    // \u3000-only line stripped to empty
     expect(lines[3]).toBe('');
     expect(lines[4]).toBe('——澄目村 石碑『澄鏡ノ辞』');
   });

@@ -151,6 +151,22 @@ export function App() {
                 />
                 <p class="text-xs text-gray-600 mt-1">Number of token for each translation chunk.</p>
               </div>
+              <div class="py-2.5 border-b border-gray-800/50">
+                <label class="block text-sm text-gray-200 mb-1.5">Reasoning Effort</label>
+                <select
+                  value={config.reasoningEffort}
+                  onChange={(e) =>
+                    updateConfig({ reasoningEffort: (e.target as HTMLSelectElement).value as AppConfig['reasoningEffort'] })
+                  }
+                  class="input"
+                >
+                  <option value="none">None</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+                <p class="text-xs text-gray-600 mt-1">Controls how much the model reasons before responding.</p>
+              </div>
               <Toggle
                 label="Preemptive next-chapter"
                 description="Translate the next chapter in the background"

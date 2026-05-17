@@ -16,7 +16,17 @@ import {
   deleteChapter,
 } from './db/dexie';
 
+import browser from 'webextension-polyfill';
+
+const STORAGE_KEY = 'inkwell-config';
+
 let currentConfig: AppConfig | null = null;
+
+browser.storage.local.onChanged.addListener((changes) => {
+  if (changes[STORAGE_KEY]) {
+    currentConfig = changes[STORAGE_KEY].newValue as AppConfig;
+  }
+});
 
 async function getConfig(): Promise<AppConfig> {
   if (!currentConfig) {
