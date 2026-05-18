@@ -24,3 +24,12 @@ export interface NovelRecord {
   title: string;
   author: string;
 }
+
+export interface KeywordRecord {
+  id?: number;
+  novelKey: string;
+  src: string;
+  dst: string;
+  info: string;
+  count: number;
+}

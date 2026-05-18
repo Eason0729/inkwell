@@ -3,13 +3,9 @@ import { defineContentScript } from 'wxt/utils/define-content-script';
 import type { TranslationRequest, TranslationResponse, Language } from '../core/api';
 import { getProviderByUrl } from '../core/providers/index';
 import { loadConfig } from '../core/config';
-import {
-  extractChapterFromDom,
-  findNextChapterUrl,
-  replaceBodyWithTranslation,
-  insertLanguageToggle,
-} from '../core/dom';
+import { extractChapterFromDom, findNextChapterUrl, replaceBodyWithTranslation } from '../core/dom';
 import { fetchNextChapterContent } from '../core/fetch';
+import { mountInkwellBanner, unmountInkwellBanner, updateInkwellBanner } from './content/banner';
 
 let currentProvider: ReturnType<typeof getProviderByUrl> = undefined;
 let originalBody = '';
@@ -21,28 +17,41 @@ let currentUrl = '';
 let currentTitle = '';
 let currentSourceLanguage: Language = 'jp';
 let isRetranslating = false;
+let bannerMounted = false;
 
 function toggleLanguage(): void {
+  if (!currentProvider) return;
   if (currentLang === 'original') {
-    if (translatedBody && currentProvider) {
+    if (translatedBody) {
       replaceBodyWithTranslation(currentProvider, translatedBody);
       currentLang = 'translated';
     }
   } else {
-    if (originalBody && currentProvider) {
+    if (originalBody) {
       replaceBodyWithTranslation(currentProvider, originalBody);
       currentLang = 'original';
     }
   }
-  insertLanguageToggle(currentLang, toggleLanguage, handleRetranslate);
+  if (bannerMounted) {
+    updateInkwellBanner({ currentLang, isLoading: false });
+  }
 }
 
 async function handleRetranslate(): Promise<void> {
-  if (isRetranslating || !currentProvider || !currentParsed || !originalBody) return;
+  if (isRetranslating || !currentProvider || !currentParsed || !originalBody) {
+    if (bannerMounted) {
+      updateInkwellBanner({ isLoading: false });
+    }
+    return;
+  }
   isRetranslating = true;
   try {
+    // Show original text immediately while retranslating
     replaceBodyWithTranslation(currentProvider, originalBody);
     currentLang = 'original';
+    if (bannerMounted) {
+      updateInkwellBanner({ currentLang, isLoading: true });
+    }
 
     const response = await requestTranslation(
       currentParsed.providerId,
@@ -61,10 +70,16 @@ async function handleRetranslate(): Promise<void> {
       translatedBody = response.translatedContent;
       replaceBodyWithTranslation(currentProvider, translatedBody);
       currentLang = 'translated';
+      if (bannerMounted) {
+        updateInkwellBanner({ currentLang, isLoading: false });
+      }
+    } else {
+      if (bannerMounted) {
+        updateInkwellBanner({ isLoading: false });
+      }
     }
   } finally {
     isRetranslating = false;
-    insertLanguageToggle(currentLang, toggleLanguage, handleRetranslate);
   }
 }
 
@@ -140,6 +155,13 @@ export default defineContentScript({
       currentTitle = extracted.title;
       currentSourceLanguage = provider.language;
 
+      mountInkwellBanner({
+        onToggle: toggleLanguage,
+        onRetranslate: handleRetranslate,
+        initialState: { currentLang: 'original', isLoading: true },
+      });
+      bannerMounted = true;
+
       const response = await requestTranslation(
         parsed.providerId,
         parsed.novelId,
@@ -156,8 +178,11 @@ export default defineContentScript({
         translatedBody = response.translatedContent;
         replaceBodyWithTranslation(provider, translatedBody);
         currentLang = 'translated';
-        insertLanguageToggle(currentLang, toggleLanguage, handleRetranslate);
+        updateInkwellBanner({ currentLang, isLoading: false });
         console.log('[Inkwell] Translation displayed');
+      } else {
+        // Translation failed or returned error - still show banner with stop loading
+        updateInkwellBanner({ currentLang, isLoading: false });
       }
 
       if (config.enablePreemptive && provider) {
@@ -190,6 +215,9 @@ export default defineContentScript({
       }
     } catch (err) {
       console.error('[Inkwell] Unhandled error in content script:', err, 'url:', window.location.href);
+      if (bannerMounted) {
+        updateInkwellBanner({ isLoading: false });
+      }
     }
   },
 });

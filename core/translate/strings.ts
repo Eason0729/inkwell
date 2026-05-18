@@ -44,8 +44,7 @@ const zhTw: Strings = {
     indentFwMissing: '行首全形空格遺失',
     indentTabChanged: '行首Tab被變更',
     indentAdded: '譯文有多餘行首空白',
-    lengthExtreme: (_ratio: number) =>
-      '此行譯文與原文對應行長度差距過大，可能漏譯或多譯了內容。請檢查並調整。',
+    lengthExtreme: (_ratio: number) => '此行譯文與原文對應行長度差距過大，可能漏譯或多譯了內容。請檢查並調整。',
     longLine: (tgtTokens: number, srcTokens: number) => `行過長: 譯文${tgtTokens}個token，原文${srcTokens}個token`,
   },
   keywordSchema: {
@@ -72,8 +71,7 @@ const zhCn: Strings = {
     indentFwMissing: '行首全角空格遗失',
     indentTabChanged: '行首Tab被变更',
     indentAdded: '译文有多余行首空白',
-    lengthExtreme: (_ratio: number) =>
-      '此行译文与原文对应行长度差距过大，可能漏译或多译了内容。请检查并调整。',
+    lengthExtreme: (_ratio: number) => '此行译文与原文对应行长度差距过大，可能漏译或多译了内容。请检查并调整。',
     longLine: (tgtTokens: number, srcTokens: number) => `行过长: 译文${tgtTokens}个token，原文${srcTokens}个token`,
   },
   keywordSchema: {

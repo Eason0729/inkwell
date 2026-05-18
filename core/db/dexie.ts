@@ -1,11 +1,10 @@
 import Dexie, { type Table } from 'dexie';
-import type { ChapterRecord, CacheRecord, NovelRecord } from './types';
-import type { KeywordEntry } from '../api';
+import type { ChapterRecord, CacheRecord, NovelRecord, KeywordRecord } from './types';
 
 export class InkwellDB extends Dexie {
   novels!: Table<NovelRecord, string>;
   chapters!: Table<ChapterRecord, string>;
-  keywords!: Table<KeywordEntry & { novelKey: string }, number>;
+  keywords!: Table<KeywordRecord, number>;
   cache!: Table<CacheRecord, string>;
 
   constructor() {
@@ -60,15 +59,19 @@ export async function getNovelChapters(providerId: string, novelId: string): Pro
   return getDb().chapters.where('[providerId+novelId]').equals([providerId, novelId]).toArray();
 }
 
-export async function getKeywords(providerId: string, novelId: string): Promise<KeywordEntry[]> {
+export async function getKeywords(providerId: string, novelId: string): Promise<KeywordRecord[]> {
   const nk = novelKey(providerId, novelId);
   return getDb().keywords.where({ novelKey: nk }).toArray();
 }
 
-export async function mergeKeywords(providerId: string, novelId: string, entries: KeywordEntry[]): Promise<void> {
+export async function mergeKeywords(
+  providerId: string,
+  novelId: string,
+  entries: Pick<KeywordRecord, 'src' | 'dst' | 'info'>[],
+): Promise<void> {
   const nk = novelKey(providerId, novelId);
   const existing = await getDb().keywords.where({ novelKey: nk }).toArray();
-  const existingMap = new Map<string, KeywordEntry>();
+  const existingMap = new Map<string, KeywordRecord>();
   for (const e of existing) {
     existingMap.set(e.src, e);
   }
@@ -79,16 +82,45 @@ export async function mergeKeywords(providerId: string, novelId: string, entries
         ...found,
         dst: entry.dst || found.dst,
         info: entry.info || found.info,
-        count: (found.count || 0) + 1,
+        count: found.count + 1,
       });
     } else {
-      existingMap.set(entry.src, { ...entry, count: 1 });
+      existingMap.set(entry.src, {
+        id: 0,
+        novelKey: nk,
+        src: entry.src,
+        dst: entry.dst || '',
+        info: entry.info || '',
+        count: 1,
+      });
     }
   }
   await getDb().keywords.where({ novelKey: nk }).delete();
   for (const entry of existingMap.values()) {
-    await getDb().keywords.add({ ...entry, novelKey: nk });
+    const { id, ...data } = entry;
+    await getDb().keywords.add(data);
   }
+}
+
+export async function updateKeyword(
+  id: number,
+  changes: Partial<Pick<KeywordRecord, 'src' | 'dst' | 'info'>>,
+): Promise<void> {
+  await getDb().keywords.update(id, changes);
+}
+
+export async function deleteKeyword(id: number): Promise<void> {
+  await getDb().keywords.delete(id);
+}
+
+export async function addKeyword(novelKey: string, entry: Pick<KeywordRecord, 'src' | 'dst' | 'info'>): Promise<void> {
+  await getDb().keywords.add({
+    novelKey,
+    src: entry.src,
+    dst: entry.dst || '',
+    info: entry.info || '',
+    count: 1,
+  });
 }
 
 export async function getCache(dedupKey: string): Promise<CacheRecord | undefined> {
