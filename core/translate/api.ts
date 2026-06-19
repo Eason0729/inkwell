@@ -2,7 +2,6 @@ import type { Language } from '../api';
 import type { AppConfig } from '../config';
 import type { Strings } from './strings';
 import { MAX_OUTPUT_TOKENS } from './token';
-import { TRANSLATION } from './constants';
 import { cleanResponse } from './response';
 
 export function languageName(lang: Language): string {
@@ -43,27 +42,32 @@ function extractOutputText(data: { output_text?: string; output?: OutputItem[] }
   return undefined;
 }
 
-// usage of response API enable interleaved thinking,
-// which greatly imporve the output quality on provider like claudflare and GMICloud
 export async function callLlm(
   messages: Array<{ role: string; content: string }>,
   config: AppConfig,
   strings: Strings,
   responseFormat?: ResponseFormat,
 ): Promise<string | null> {
-  const body: Record<string, unknown> = {
+  const base: Record<string, unknown> = {
     model: config.model,
     input: messages,
     max_output_tokens: MAX_OUTPUT_TOKENS,
-    repetition_penalty: TRANSLATION.repetitionPenalty,
-    temperature: TRANSLATION.temperature,
-    top_p: TRANSLATION.topP,
-    reasoning: { effort: config.reasoningEffort },
     store: false,
   };
 
+  let extra: Record<string, unknown> | undefined;
+  if (config.extraBody.trim()) {
+    try {
+      extra = JSON.parse(config.extraBody) as Record<string, unknown>;
+    } catch (err) {
+      console.warn('[Inkwell] extraBody is not valid JSON, ignoring:', err);
+    }
+  }
+
+  const body: Record<string, unknown> = extra ? { ...base, ...extra } : base;
+
   if (responseFormat) {
-    body.text = { format: responseFormat };
+    body.text = { response_format: responseFormat };
   }
 
   try {

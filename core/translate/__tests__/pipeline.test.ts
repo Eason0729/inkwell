@@ -20,7 +20,7 @@ const testConfig: AppConfig = {
   autoTranslate: true,
   enablePreemptive: false,
   parallelism: 4,
-  reasoningEffort: 'none',
+  extraBody: '{"reasoning":{"effort":"none"}}',
 };
 
 beforeEach(() => {

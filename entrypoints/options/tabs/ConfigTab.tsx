@@ -1,5 +1,4 @@
-import { useState } from 'preact/hooks';
-import type { AppConfig, ReasoningEffort } from '../../../core/config';
+import type { AppConfig } from '../../../core/config';
 import type { Language } from '../../../core/api';
 
 export function ConfigTab({
@@ -9,6 +8,8 @@ export function ConfigTab({
   config: AppConfig;
   onChange: (partial: Partial<AppConfig>) => void;
 }) {
+  const extraValid = isJson(config.extraBody);
+
   return (
     <div className="space-y-6">
       <Section title="API">
@@ -42,6 +43,22 @@ export function ConfigTab({
               className="input"
               placeholder="mistralai/mistral-nemo"
             />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1.5">Request overrides JSON</label>
+            <textarea
+              value={config.extraBody}
+              onInput={(e) => onChange({ extraBody: (e.target as HTMLTextAreaElement).value })}
+              spellcheck={false}
+              rows={9}
+              className={`input font-mono ${extraValid ? '' : 'border-red-500'}`}
+              placeholder='{ "provider": { "only": ["deepseek"] } }'
+            />
+            {extraValid ? (
+              <p className="text-xs text-gray-600 mt-1">Merged into the request body.</p>
+            ) : (
+              <p className="text-xs text-red-400 mt-1">Invalid JSON — this will be ignored until fixed.</p>
+            )}
           </div>
         </div>
       </Section>
@@ -86,20 +103,6 @@ export function ConfigTab({
           />
           <p className="text-xs text-gray-600 mt-1">Number of token for each translation chunk.</p>
         </div>
-        <div className="py-2.5 border-b border-gray-800/50">
-          <label className="block text-sm text-gray-200 mb-1.5">Reasoning Effort</label>
-          <select
-            value={config.reasoningEffort}
-            onChange={(e) => onChange({ reasoningEffort: (e.target as HTMLSelectElement).value as ReasoningEffort })}
-            className="input"
-          >
-            <option value="none">None</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-          <p className="text-xs text-gray-600 mt-1">Controls how much the model reasons before responding.</p>
-        </div>
         <Toggle
           label="Preemptive next-chapter"
           description="Translate the next chapter in the background"
@@ -109,6 +112,16 @@ export function ConfigTab({
       </Section>
     </div>
   );
+}
+
+function isJson(text: string): boolean {
+  if (!text.trim()) return true;
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function Section({ title, children }: { title: string; children: preact.ComponentChildren }) {

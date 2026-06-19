@@ -1,8 +1,6 @@
 import browser from 'webextension-polyfill';
 import type { Language } from './api';
 
-export type ReasoningEffort = 'none' | 'low' | 'medium' | 'high';
-
 export interface AppConfig {
   apiEndpoint: string;
   apiKey: string;
@@ -12,7 +10,7 @@ export interface AppConfig {
   autoTranslate: boolean;
   enablePreemptive: boolean;
   parallelism: number;
-  reasoningEffort: ReasoningEffort;
+  extraBody: string;
 }
 
 const STORAGE_KEY = 'inkwell-config';
@@ -26,7 +24,13 @@ const DEFAULT_CONFIG: AppConfig = {
   autoTranslate: true,
   enablePreemptive: true,
   parallelism: 16,
-  reasoningEffort: 'none',
+  extraBody: `{
+  "provider": { "only": ["deepseek"] },
+  "reasoning": { "effort": "none" },
+  "top_p": 0.3,
+  "temperature": 0.1,
+  "repetition_penalty": 1.05
+}`,
 };
 
 export async function loadConfig(): Promise<AppConfig> {
