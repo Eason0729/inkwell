@@ -16,9 +16,35 @@ export function languageName(lang: Language): string {
   return names[lang] ?? lang;
 }
 
-// JSON Schema is required, or openrouter will throw error.
-export type ResponseFormat = { type: 'json_schema'; json_schema: { name: string; strict?: boolean; schema: object } };
+export type ResponseFormat = { type: 'json_schema'; name: string; strict?: boolean; schema: object };
 
+type OutputItem = {
+  type?: string;
+  role?: string;
+  content?: Array<{ type?: string; text?: string }>;
+};
+
+function extractOutputText(data: { output_text?: string; output?: OutputItem[] }): string | undefined {
+  if (typeof data.output_text === 'string' && data.output_text.length > 0) {
+    return data.output_text;
+  }
+  const output = data.output;
+  if (Array.isArray(output)) {
+    for (const item of output) {
+      if (item.type === 'message' && Array.isArray(item.content)) {
+        for (const part of item.content) {
+          if (part.type === 'output_text' && typeof part.text === 'string') {
+            return part.text;
+          }
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+// usage of response API enable interleaved thinking,
+// which greatly imporve the output quality on provider like claudflare and GMICloud
 export async function callLlm(
   messages: Array<{ role: string; content: string }>,
   config: AppConfig,
@@ -27,21 +53,21 @@ export async function callLlm(
 ): Promise<string | null> {
   const body: Record<string, unknown> = {
     model: config.model,
-    messages,
-    max_tokens: MAX_OUTPUT_TOKENS,
+    input: messages,
+    max_output_tokens: MAX_OUTPUT_TOKENS,
     repetition_penalty: TRANSLATION.repetitionPenalty,
     temperature: TRANSLATION.temperature,
     top_p: TRANSLATION.topP,
     reasoning: { effort: config.reasoningEffort },
-    reasoning_effort: config.reasoningEffort,
+    store: false,
   };
 
   if (responseFormat) {
-    body.response_format = responseFormat;
+    body.text = { format: responseFormat };
   }
 
   try {
-    const res = await fetch(`${config.apiEndpoint.replace(/\/+$/, '')}/chat/completions`, {
+    const res = await fetch(`${config.apiEndpoint.replace(/\/+$/, '')}/responses`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -57,7 +83,7 @@ export async function callLlm(
     }
 
     const data = await res.json();
-    let content: string | undefined = data.choices?.[0]?.message?.content;
+    let content: string | undefined = extractOutputText(data);
     if (content) content = cleanResponse(content, strings);
     return content ?? null;
   } catch (err) {

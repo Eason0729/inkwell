@@ -30,29 +30,27 @@ function buildKeywordSchema(strings: Strings): ResponseFormat {
   const s = strings.keywordSchema;
   return {
     type: 'json_schema',
-    json_schema: {
-      name: 'keywords',
-      strict: true,
-      schema: {
-        type: 'object',
-        properties: {
-          keywords: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                src: { type: 'string', description: s.srcDesc },
-                dst: { type: 'string', description: s.dstDesc },
-                info: { type: 'string', description: s.infoDesc },
-              },
-              required: ['src', 'dst', 'info'],
-              additionalProperties: false,
+    name: 'keywords',
+    strict: true,
+    schema: {
+      type: 'object',
+      properties: {
+        keywords: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              src: { type: 'string', description: s.srcDesc },
+              dst: { type: 'string', description: s.dstDesc },
+              info: { type: 'string', description: s.infoDesc },
             },
+            required: ['src', 'dst', 'info'],
+            additionalProperties: false,
           },
         },
-        required: ['keywords'],
-        additionalProperties: false,
       },
+      required: ['keywords'],
+      additionalProperties: false,
     },
   };
 }
